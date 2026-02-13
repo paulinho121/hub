@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Menu, X, LayoutDashboard, LogOut, LogIn, ShieldAlert 
+import {
+  Menu, X, LayoutDashboard, LogOut, LogIn, ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -33,20 +33,20 @@ const Navigation = () => {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-             <img 
-               src="https://horizons-cdn.hostinger.com/0dac87d6-de75-44be-816f-f9d7405a5902/55fc0b45212861f0a066eab7b4474d0e.png" 
-               alt="HubLumi Logo" 
-               className="h-10 w-auto object-contain"
-             />
+            <img
+              src="https://horizons-cdn.hostinger.com/0dac87d6-de75-44be-816f-f9d7405a5902/55fc0b45212861f0a066eab7b4474d0e.png"
+              alt="HubLumi Logo"
+              className="h-10 w-auto object-contain"
+            />
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center space-x-6">
             <Link to="/" className={cn("text-sm font-medium hover:text-[#FFD700] transition-colors", isActive('/') ? "text-[#FFD700]" : "text-gray-300")}>Home</Link>
             <Link to="/catalogo" className={cn("text-sm font-medium hover:text-[#FFD700] transition-colors", isActive('/catalogo') ? "text-[#FFD700]" : "text-gray-300")}>Catálogo</Link>
-            
+
             <div className="h-6 w-px bg-white/10 mx-2" />
-            
+
             <Link to="/comparison" className={cn("text-sm font-medium hover:text-[#FFD700] transition-colors", isActive('/comparison') ? "text-[#FFD700]" : "text-gray-300")}>
               Comparar
             </Link>
@@ -54,13 +54,13 @@ const Navigation = () => {
             {user ? (
               <div className="flex items-center space-x-4">
                 <Link to={getDashboardLink()}>
-                    <Button variant="ghost" className={cn(
-                        "transition-colors",
-                        isAdmin ? "text-red-400 hover:bg-red-900/10" : "text-[#FFD700] hover:bg-[#FFD700]/10"
-                    )}>
-                      {isAdmin ? <ShieldAlert className="w-4 h-4 mr-2" /> : <LayoutDashboard className="w-4 h-4 mr-2" />}
-                      Dashboard
-                    </Button>
+                  <Button variant="ghost" className={cn(
+                    "transition-colors",
+                    isAdmin ? "text-red-400 hover:bg-red-900/10" : "text-[#FFD700] hover:bg-[#FFD700]/10"
+                  )}>
+                    {isAdmin ? <ShieldAlert className="w-4 h-4 mr-2" /> : <LayoutDashboard className="w-4 h-4 mr-2" />}
+                    Dashboard
+                  </Button>
                 </Link>
                 <Button onClick={handleLogout} variant="ghost" size="icon" className="text-gray-400 hover:text-white">
                   <LogOut className="w-5 h-5" />
@@ -88,24 +88,64 @@ const Navigation = () => {
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
-            className="lg:hidden border-t border-white/10 bg-black overflow-hidden"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="lg:hidden fixed inset-0 top-20 z-40 bg-black/95 backdrop-blur-xl border-t border-white/5"
           >
-            <div className="p-4 space-y-4">
-              <Link to="/" onClick={() => setMobileMenuOpen(false)} className="block text-white hover:text-[#FFD700]">Home</Link>
-              <Link to="/catalogo" onClick={() => setMobileMenuOpen(false)} className="block text-white hover:text-[#FFD700]">Catálogo</Link>
-              <Link to="/comparison" onClick={() => setMobileMenuOpen(false)} className="block text-white hover:text-[#FFD700]">Comparar</Link>
-              
-              {user ? (
-                 <>
-                   <Link to={getDashboardLink()} onClick={() => setMobileMenuOpen(false)} className="block text-[#FFD700] font-bold">Dashboard</Link>
-                   <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center text-gray-400 mt-4">
-                     <LogOut className="w-4 h-4 mr-2" /> Sair
-                   </button>
-                 </>
-              ) : (
-                 <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="block text-[#FFD700] font-bold">Entrar</Link>
-              )}
+            <div className="flex flex-col h-full p-6 space-y-6">
+              <div className="space-y-4">
+                {[
+                  { to: '/', label: 'Home', icon: Aperture },
+                  { to: '/catalogo', label: 'Catálogo', icon: Grid },
+                  { to: '/comparison', label: 'Comparar', icon: MapPin },
+                ].map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-4 p-4 rounded-xl text-lg font-medium transition-all",
+                      isActive(item.to) ? "bg-[#FFD700] text-black" : "text-gray-300 hover:bg-white/5"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+
+              <div className="pt-6 border-t border-white/10 space-y-4">
+                {user ? (
+                  <>
+                    <Link
+                      to={getDashboardLink()}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-4 p-4 rounded-xl bg-white/5 text-[#FFD700] font-bold text-lg"
+                    >
+                      <LayoutDashboard className="w-5 h-5" />
+                      Dashboard {isAdmin && "(Admin)"}
+                    </Link>
+                    <button
+                      onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                      className="flex items-center gap-4 p-4 w-full text-red-500 font-medium"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Sair da Conta
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-3 p-5 rounded-2xl bg-[#FFD700] text-black font-black text-xl shadow-lg shadow-[#FFD700]/20"
+                  >
+                    <LogIn className="w-6 h-6" />
+                    ENTRAR AGORA
+                  </Link>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
