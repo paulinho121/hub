@@ -92,11 +92,38 @@ const SuperAdminDashboard = () => {
         }
     };
 
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'pendente_aprovacao': return 'bg-yellow-500/20 text-yellow-500';
+            case 'aprovado': return 'bg-blue-500/20 text-blue-400';
+            case 'pago': return 'bg-green-500/20 text-green-400';
+            case 'cancelado': return 'bg-red-500/20 text-red-500';
+            default: return 'bg-zinc-800 text-zinc-400';
+        }
+    };
+
+    const handleUpdateLogisticsStatus = async (reservaId, newStatus) => {
+        try {
+            const { error } = await supabase
+                .from('reservas')
+                .update({ logistica_status: newStatus })
+                .eq('id', reservaId);
+
+            if (error) throw error;
+
+            toast({ title: 'Status logístico atualizado' });
+            loadData();
+        } catch (error) {
+            toast({ title: 'Erro ao atualizar status', description: error.message, variant: 'destructive' });
+        }
+    };
+
     const getTabLabel = (tab) => {
         switch (tab) {
             case 'equipment': return 'Equipamentos (Live)';
             case 'locadoras': return 'Locadoras';
             case 'reservas': return 'Reservas';
+            case 'logistica': return 'Torre de Controle (Logística)';
             case 'registration': return 'Cadastrar Produto';
             default: return tab;
         }
@@ -142,12 +169,13 @@ const SuperAdminDashboard = () => {
 
                 {/* Tabs */}
                 <div className="flex gap-4 mb-8 border-b border-white/10 pb-1 overflow-x-auto">
-                    {['equipment', 'locadoras', 'reservas', 'registration'].map(tab => (
+                    {['equipment', 'locadoras', 'reservas', 'logistica', 'registration'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`px-4 py-2 text-sm font-bold uppercase tracking-wider transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === tab ? 'text-[#FFD700] border-b-2 border-[#FFD700]' : 'text-gray-500 hover:text-white'}`}
                         >
+                            {tab === 'logistica' && <LayoutDashboard className="w-4 h-4" />}
                             {tab === 'registration' && <PlusCircle className="w-4 h-4" />}
                             {getTabLabel(tab)}
                         </button>
@@ -242,27 +270,97 @@ const SuperAdminDashboard = () => {
                                         <th className="p-4">Cliente</th>
                                         <th className="p-4">Item</th>
                                         <th className="p-4">Datas</th>
-                                        <th className="p-4">Valor</th>
+                                        <th className="p-4">Entrega</th>
+                                        <th className="p-4">Status</th>
+                                        <th className="p-4 text-right">Valor</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {reservas.length === 0 ? (
-                                        <tr><td colSpan="5" className="p-8 text-center text-gray-500">Nenhuma reserva encontrada.</td></tr>
+                                        <tr><td colSpan="7" className="p-8 text-center text-gray-500">Nenhuma reserva encontrada.</td></tr>
                                     ) : (
                                         reservas.map(res => (
                                             <tr key={res.id} className="hover:bg-white/5">
                                                 <td className="p-4 font-bold text-white">{res.locadoras?.nome}</td>
-                                                <td className="p-4">{res.usuarios?.nome || res.usuarios?.email}</td>
-                                                <td className="p-4">{res.equipamentos?.modelo}</td>
-                                                <td className="p-4 text-xs">
-                                                    {res.data_inicio} até {res.data_fim}
+                                                <td className="p-4">
+                                                    <div className="text-white">{res.usuarios?.nome || res.customer_name}</div>
+                                                    <div className="text-[10px] text-gray-500">{res.usuarios?.email || res.customer_email}</div>
                                                 </td>
-                                                <td className="p-4 text-[#FFD700]">R$ {res.valor_total}</td>
+                                                <td className="p-4">{res.equipamentos?.modelo || res.equipment_name}</td>
+                                                <td className="p-4 text-xs">
+                                                    {new Date(res.data_inicio || res.start_date).toLocaleDateString('pt-BR')} <br />
+                                                    até {new Date(res.data_fim || res.end_date).toLocaleDateString('pt-BR')}
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${res.modalidade_entrega === 'delivery' ? 'bg-blue-900 text-blue-300' : 'bg-zinc-800 text-zinc-400'}`}>
+                                                        {res.modalidade_entrega === 'delivery' ? 'Delivery' : 'Hub Pickup'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${getStatusColor(res.status)}`}>
+                                                        {res.status?.replace('_', ' ') || 'Pendente'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-[#FFD700] font-bold text-right">R$ {res.valor_total || res.total_price}</td>
                                             </tr>
                                         ))
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {activeTab === 'logistica' && (
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-bold text-white">Torre de Controle de Logística</h2>
+                                <div className="flex gap-2">
+                                    <div className="bg-zinc-900 border border-white/10 px-4 py-2 rounded-lg flex items-center gap-2">
+                                        <Package className="w-4 h-4 text-blue-400" />
+                                        <span className="text-xs text-white">Total Entregas: {reservas.filter(r => r.modalidade_entrega === 'delivery').length}</span>
+                                    </div>
+                                    <div className="bg-zinc-900 border border-white/10 px-4 py-2 rounded-lg flex items-center gap-2">
+                                        <MapPin className="w-4 h-4 text-[#FFD700]" />
+                                        <span className="text-xs text-white">Pickups em análise: {reservas.filter(r => r.logistica_status === 'pendente').length}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4">
+                                {reservas.filter(r => r.modalidade_entrega === 'delivery' || r.logistica_status !== 'pendente').map(res => (
+                                    <div key={res.id} className="bg-[#1a1a1a] border border-white/10 rounded-xl p-5 flex flex-col md:flex-row justify-between items-center gap-4">
+                                        <div className="flex items-center gap-4 w-full md:w-auto">
+                                            <div className={`p-3 rounded-full ${res.modalidade_entrega === 'delivery' ? 'bg-blue-500/10 text-blue-400' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                                                {res.modalidade_entrega === 'delivery' ? <MapPin className="w-6 h-6" /> : <Package className="w-6 h-6" />}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-white">{res.equipamentos?.modelo || res.equipment_name}</h4>
+                                                <p className="text-xs text-gray-500">De: {res.locadoras?.nome} → Para: {res.modalidade_entrega === 'delivery' ? res.endereco_entrega : 'Hub Principal'}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                                            <div className="text-right mr-4">
+                                                <div className="text-[10px] text-gray-500 uppercase font-black">Status Logístico</div>
+                                                <div className="text-xs text-[#FFD700] font-bold">{res.logistica_status?.replace('_', ' ') || 'AGUARDANDO COLETA'}</div>
+                                            </div>
+                                            <select
+                                                className="bg-black border border-white/20 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-[#FFD700]"
+                                                value={res.logistica_status || 'pendente'}
+                                                onChange={(e) => handleUpdateLogisticsStatus(res.id, e.target.value)}
+                                            >
+                                                <option value="pendente">Pendente</option>
+                                                <option value="coleta_agendada">Coleta Agendada</option>
+                                                <option value="em_transito">Em Trânsito</option>
+                                                <option value="entregue">Entregue no Set</option>
+                                                <option value="devolvido_hub">Devolvido ao Hub</option>
+                                                <option value="finalizado">Finalizado</option>
+                                            </select>
+                                            <Button size="sm" className="bg-[#FFD700] text-black">Ver Rota</Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 

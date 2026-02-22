@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, Building, CreditCard, MessageCircle, Loader2 } from 'lucide-react';
+import { User, Mail, Phone, Building, CreditCard, MessageCircle, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -17,7 +17,9 @@ const ReservationPage = () => {
     phone: '',
     whatsapp: '', // Added WhatsApp field
     company: '',
-    paymentMethod: 'pix'
+    paymentMethod: 'pix',
+    deliveryMethod: 'hub_pickup',
+    deliveryAddress: ''
   });
 
   useEffect(() => {
@@ -28,7 +30,7 @@ const ReservationPage = () => {
     }
     const data = JSON.parse(pending);
     setReservationData(data);
-    
+
     // Pre-fill user data if available from session
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
     if (currentUser) {
@@ -45,17 +47,17 @@ const ReservationPage = () => {
 
   const calculateTotalPrice = () => {
     if (!reservationData) return 0;
-    
+
     const start = new Date(reservationData.startDate);
     const end = new Date(reservationData.endDate);
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-    
+
     return reservationData.equipment.daily_price * days;
   };
 
   const calculateDays = () => {
     if (!reservationData) return 0;
-    
+
     const start = new Date(reservationData.startDate);
     const end = new Date(reservationData.endDate);
     return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
@@ -76,7 +78,7 @@ const ReservationPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (formData.whatsapp && !validateWhatsApp(formData.whatsapp)) {
       toast({
         title: 'Número de WhatsApp inválido',
@@ -105,6 +107,10 @@ const ReservationPage = () => {
         customer_whatsapp: formData.whatsapp, // Store WhatsApp
         customer_company: formData.company,
         payment_method: formData.paymentMethod,
+        modalidade_entrega: formData.deliveryMethod,
+        endereco_entrega: formData.deliveryAddress,
+        status: 'pendente_aprovacao', // More specific status
+        logistica_status: 'pendente',
         created_at: new Date().toISOString()
       };
 
@@ -169,7 +175,7 @@ const ReservationPage = () => {
             className="bg-white/5 backdrop-blur-sm border border-yellow-500/20 rounded-2xl p-8"
           >
             <h2 className="text-2xl font-bold text-white mb-6">Resumo da Reserva</h2>
-            
+
             <div className="space-y-6">
               <div>
                 <img
@@ -318,6 +324,53 @@ const ReservationPage = () => {
                     <option value="boleto" className="bg-gray-900">Boleto</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="pt-6 border-t border-yellow-500/20">
+                <h3 className="text-xl font-bold text-white mb-4">Logística de Entrega</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, deliveryMethod: 'hub_pickup' })}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${formData.deliveryMethod === 'hub_pickup' ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/10 bg-white/5 hover:border-yellow-500/50'}`}
+                  >
+                    <Building className="w-6 h-6 text-yellow-500 mb-2" />
+                    <div className="font-bold text-white">Retirada no Hub</div>
+                    <div className="text-xs text-gray-400">Retire pessoalmente em nossa loja física oficial.</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, deliveryMethod: 'delivery' })}
+                    className={`p-4 rounded-xl border-2 transition-all text-left ${formData.deliveryMethod === 'delivery' ? 'border-yellow-500 bg-yellow-500/10' : 'border-white/10 bg-white/5 hover:border-yellow-500/50'}`}
+                  >
+                    <MapPin className="w-6 h-6 text-yellow-500 mb-2" />
+                    <div className="font-bold text-white">Delivery Full Service</div>
+                    <div className="text-xs text-gray-400">Entrega e coleta no endereço solicitado (Set de filmagem).</div>
+                  </button>
+                </div>
+
+                {formData.deliveryMethod === 'delivery' && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mt-4 space-y-4"
+                  >
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Endereço de Entrega</label>
+                      <textarea
+                        name="deliveryAddress"
+                        value={formData.deliveryAddress}
+                        onChange={handleChange}
+                        required
+                        rows="3"
+                        className="w-full bg-white/10 border border-yellow-500/30 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+                        placeholder="Rua, Número, Complemento, Bairro, Cidade - UF"
+                      />
+                      <p className="text-xs text-yellow-500/70 mt-1">* O valor do frete será calculado pela nossa equipe após a confirmação.</p>
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
               <Button

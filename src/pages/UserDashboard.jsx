@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, Building, Package, Edit, MessageCircle } from 'lucide-react';
+import { User, Mail, Phone, Building, Package, Edit, MessageCircle, MapPin, Truck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -79,12 +79,16 @@ const UserDashboard = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'confirmed':
+      case 'aprovado':
         return 'text-green-400 bg-green-500/20';
       case 'pending':
+      case 'pendente_aprovacao':
         return 'text-yellow-400 bg-yellow-500/20';
       case 'completed':
+      case 'finalizado':
         return 'text-blue-400 bg-blue-500/20';
       case 'cancelled':
+      case 'cancelado':
         return 'text-red-400 bg-red-500/20';
       default:
         return 'text-gray-400 bg-gray-500/20';
@@ -94,15 +98,19 @@ const UserDashboard = () => {
   const getStatusText = (status) => {
     switch (status) {
       case 'confirmed':
+      case 'aprovado':
         return 'Confirmada';
       case 'pending':
-        return 'Pendente';
+      case 'pendente_aprovacao':
+        return 'Aguardando Aprovação';
       case 'completed':
+      case 'finalizado':
         return 'Concluída';
       case 'cancelled':
+      case 'cancelado':
         return 'Cancelada';
       default:
-        return status;
+        return status?.replace('_', ' ');
     }
   };
 
@@ -316,6 +324,28 @@ const UserDashboard = () => {
                           <p className="text-white font-semibold">
                             {new Date(reservation.created_at).toLocaleDateString('pt-BR')}
                           </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-white/10 flex flex-col md:flex-row justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-2 rounded ${reservation.modalidade_entrega === 'delivery' ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400'}`}>
+                            {reservation.modalidade_entrega === 'delivery' ? <MapPin className="w-4 h-4" /> : <Building className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-500 uppercase font-black">Entrega</p>
+                            <p className="text-xs text-white">{reservation.modalidade_entrega === 'delivery' ? 'Delivery no Set' : 'Retirada no Hub'}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded bg-yellow-500/10 text-yellow-500">
+                            <Truck className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-500 uppercase font-black">Status Logístico</p>
+                            <p className="text-xs text-yellow-500 font-bold uppercase">{reservation.logistica_status?.replace('_', ' ') || 'Processando'}</p>
+                          </div>
                         </div>
                       </div>
                     </div>

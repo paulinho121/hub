@@ -89,46 +89,30 @@ const EquipamentoDetailPage = () => {
     });
   };
 
-  const handleReserve = async (e) => {
+  const handleReserve = (e) => {
     e.preventDefault();
-    setSubmitting(true);
 
     if (!dates.start || !dates.end) {
       toast({ title: 'Datas obrigatórias', variant: 'destructive' });
-      setSubmitting(false);
       return;
     }
 
-    try {
-      const reservaData = {
-        equipamento_id: item.id,
-        locadora_id: item.locadora_id,
-        usuario_id: user?.id || null,
-        data_inicio: dates.start,
-        data_fim: dates.end,
-        quantidade_reservada: quantity,
-        valor_total: (item.valor_diaria || item.valorDiaria) * calculateDays()
-      };
+    const pendingData = {
+      equipment: {
+        id: item.id,
+        name: item.titulo || item.modelo,
+        image_url: images[0],
+        daily_price: item.valorDiaria || item.valor_diaria,
+        category: item.categoria,
+        locadora_id: item.locadora_id
+      },
+      startDate: dates.start,
+      endDate: dates.end,
+      quantity: quantity
+    };
 
-      const reserva = await reservationService.create(reservaData);
-
-      toast({
-        title: 'Solicitação Enviada!',
-        description: 'Sua reserva foi registrada e a locadora entrará em contato.'
-      });
-
-      navigate('/reserva/confirmacao', { state: { reservation: reserva, item } });
-
-    } catch (error) {
-      console.error('Erro na reserva:', error);
-      toast({
-        title: 'Erro ao processar reserva',
-        description: error.message,
-        variant: 'destructive'
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    localStorage.setItem('pendingReservation', JSON.stringify(pendingData));
+    navigate('/reserva');
   };
 
   const calculateDays = () => {

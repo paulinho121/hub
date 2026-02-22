@@ -19,6 +19,7 @@ const LocadoraDashboard = () => {
     const [hubCatalog, setHubCatalog] = useState([]);
     const [loading, setLoading] = useState(true);
     const [userProfile, setUserProfile] = useState(null);
+    const [reservas, setReservas] = useState([]);
     const { user, logout } = useAuth();
     const { toast } = useToast();
     const navigate = useNavigate();
@@ -45,6 +46,14 @@ const LocadoraDashboard = () => {
             // Fetch Hub Catalog (Other Locadoras)
             const othersEq = await getOtherLocadorasEquipment(targetId);
             setHubCatalog(othersEq || []);
+
+            // Fetch Reservations for this locadora
+            const { data: res } = await supabase
+                .from('reservas')
+                .select('*, equipamentos(modelo, imagem), usuarios(nome, email)')
+                .eq('locadora_id', targetId)
+                .order('created_at', { ascending: false });
+            setReservas(res || []);
 
         } catch (error) {
             console.error("Dashboard Load Error:", error);
@@ -172,10 +181,46 @@ const LocadoraDashboard = () => {
                     )}
 
                     {activeTab === 'solicitacoes' && (
-                        <div className="bg-[#111] rounded-2xl border border-white/10 p-20 text-center animate-in fade-in">
-                            <ArrowRightLeft className="w-16 h-16 text-zinc-800 mx-auto mb-6" />
-                            <h2 className="text-xl font-bold text-white mb-2">Central de Intermediação</h2>
-                            <p className="text-zinc-500 max-w-md mx-auto">Suas solicitações de produtos enviadas e recebidas via Hub aparecerão aqui em breve.</p>
+                        <div className="animate-in fade-in duration-500">
+                            {reservas.length === 0 ? (
+                                <div className="bg-[#111] rounded-2xl border border-white/10 p-20 text-center">
+                                    <ArrowRightLeft className="w-16 h-16 text-zinc-800 mx-auto mb-6" />
+                                    <h2 className="text-xl font-bold text-white mb-2">Sem pedidos no momento</h2>
+                                    <p className="text-zinc-500 max-w-md mx-auto">Quando um usuário alugar um de seus equipamentos, ele aparecerá aqui para você preparar para coleta.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {reservas.map(res => (
+                                        <div key={res.id} className="bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-16 h-16 rounded-lg bg-zinc-900 overflow-hidden border border-white/5">
+                                                    <img src={res.equipamentos?.imagem || res.equipamentos?.image_url} alt="" className="w-full h-full object-cover" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-white font-bold">{res.equipamentos?.modelo}</h4>
+                                                    <p className="text-xs text-zinc-500">Cliente: {res.usuarios?.nome || 'Cliente HubLumi'}</p>
+                                                    <p className="text-[10px] text-zinc-600 uppercase tracking-tighter mt-1">ID: {res.id}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col items-center md:items-end gap-2">
+                                                <div className="text-right">
+                                                    <div className="text-[10px] text-zinc-500 uppercase font-black">Entrega Responsável</div>
+                                                    <div className="text-sm text-blue-400 font-bold">{res.modalidade_entrega === 'delivery' ? 'Logística HubLumi (Delivery)' : 'Retirada no Hub Central'}</div>
+                                                </div>
+                                                <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${res.logistica_status === 'pendente' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
+                                                    {res.logistica_status?.replace('_', ' ') || 'AGUARDANDO COLETA'}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <Button size="sm" className="bg-[#FFD700] text-black font-bold">Ver Checklist</Button>
+                                                <Button variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">Detalhes</Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
