@@ -1,17 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, Building, Package, Edit, MessageCircle, MapPin, Truck } from 'lucide-react';
+import { User, Mail, Phone, Building, Package, Edit, MessageCircle, MapPin, Truck, FolderPlus, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import NotificationPreferences from '@/components/NotificationPreferences';
-import { mockSupabaseOperations } from '@/lib/supabase';
+import { reservationService } from '@/services/reservationService';
+import { equipmentService } from '@/services/equipmentService';
+import { projectService } from '@/services/projectService';
 
 const UserDashboard = () => {
   const { currentUser, updateProfile } = useAuth();
   const { toast } = useToast();
   const [reservations, setReservations] = useState([]);
+  const [loadingReservations, setLoadingReservations] = useState(true);
+  const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [availableEquipment, setAvailableEquipment] = useState([]);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState('');
+  const [selectedEquipmentQty, setSelectedEquipmentQty] = useState(1);
+  const [draftItems, setDraftItems] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -23,8 +35,16 @@ const UserDashboard = () => {
   });
 
   useEffect(() => {
-    loadReservations();
-    // Update form data if user context updates
+    if (currentUser?.id) {
+      loadReservations();
+      loadProjects();
+      loadEquipment();
+    } else {
+      setReservations([]);
+      setLoadingReservations(false);
+      setProjects([]);
+      setLoadingProjects(false);
+    }
     if (currentUser) {
       setFormData(prev => ({
         ...prev,
@@ -37,10 +57,53 @@ const UserDashboard = () => {
     }
   }, [currentUser]);
 
-  const loadReservations = () => {
-    const allReservations = JSON.parse(localStorage.getItem('reservations') || '[]');
-    // In a real app, filter by user_id
-    setReservations(allReservations);
+  const loadReservations = async () => {
+    if (!currentUser?.id) return;
+    setLoadingReservations(true);
+    try {
+      const data = await reservationService.getReservas({ usuario_id: currentUser.id });
+      const normalized = (data || []).map(r => ({
+        id: r.id,
+        equipment_id: r.equipamento_id,
+        equipment_name: r.equipamentos?.modelo || r.equipment_name,
+        start_date: r.data_inicio,
+        end_date: r.data_fim,
+        total_price: r.valor_total,
+        status: r.status,
+        modalidade_entrega: r.modalidade_entrega,
+        created_at: r.data_criacao
+      }));
+      setReservations(normalized);
+    } catch (e) {
+      console.error('Erro ao carregar reservas:', e);
+      setReservations([]);
+    } finally {
+      setLoadingReservations(false);
+    }
+  };
+
+  const loadProjects = async () => {
+    if (!currentUser?.id) return;
+    setLoadingProjects(true);
+    try {
+      const data = await projectService.listByUser(currentUser.id);
+      setProjects(data || []);
+    } catch (e) {
+      console.error('Erro ao carregar projetos:', e);
+      setProjects([]);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const loadEquipment = async () => {
+    try {
+      const data = await equipmentService.getAllEquipment();
+      setAvailableEquipment(data || []);
+    } catch (e) {
+      console.error('Erro ao carregar equipamentos para projetos:', e);
+      setAvailableEquipment([]);
+    }
   };
 
   const handleChange = (e) => {
@@ -111,6 +174,53 @@ const UserDashboard = () => {
         return 'Cancelada';
       default:
         return status?.replace('_', ' ');
+    }
+  };
+
+  const handleAddDraftItem = () => {
+    if (!selectedEquipmentId) return;
+    const equipamento = availableEquipment.find(e => e.id === selectedEquipmentId);
+    if (!equipamento) return;
+    setDraftItems(prev => [
+      ...prev,
+      {
+        equipamento_id: equipamento.id,
+        modelo: equipamento.modelo,
+        quantidade: selectedEquipmentQty || 1
+      }
+    ]);
+    setSelectedEquipmentId('');
+    setSelectedEquipmentQty(1);
+  };
+
+  const handleCreateProject = async (e) => {
+    e.preventDefault();
+    if (!newProjectTitle.trim()) return;
+    setCreatingProject(true);
+    try {
+      const created = await projectService.create({
+        usuario_id: currentUser.id,
+        titulo: newProjectTitle.trim(),
+        descricao: newProjectDescription.trim(),
+        equipamentos: draftItems
+      });
+      setProjects(prev => [created, ...prev]);
+      setNewProjectTitle('');
+      setNewProjectDescription('');
+      setDraftItems([]);
+      toast({
+        title: 'Trabalho criado!',
+        description: 'Seu card de trabalho foi criado. Você pode usá-lo como checklist de equipamentos.'
+      });
+    } catch (error) {
+      console.error('Erro ao criar projeto:', error);
+      toast({
+        title: 'Erro ao criar trabalho',
+        description: error.message || 'Tente novamente em instantes.',
+        variant: 'destructive'
+      });
+    } finally {
+      setCreatingProject(false);
     }
   };
 
@@ -266,17 +376,19 @@ const UserDashboard = () => {
             </div>
           </motion.div>
 
-          {/* Reservations Section */}
+          {/* Reservations + Projects Section */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
-            className="lg:col-span-2"
+            className="lg:col-span-2 space-y-8"
           >
             <div className="bg-white/5 backdrop-blur-sm border border-yellow-500/20 rounded-2xl p-8">
               <h2 className="text-2xl font-bold text-white mb-6">Minhas Reservas</h2>
 
-              {reservations.length === 0 ? (
+              {loadingReservations ? (
+                <div className="text-center py-12 text-gray-400">Carregando reservas...</div>
+              ) : reservations.length === 0 ? (
                 <div className="text-center py-12">
                   <Package className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-400">Você ainda não tem reservas</p>
@@ -347,6 +459,152 @@ const UserDashboard = () => {
                             <p className="text-xs text-yellow-500 font-bold uppercase">{reservation.logistica_status?.replace('_', ' ') || 'Processando'}</p>
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Projects / Trabalhos */}
+            <div className="bg-white/5 backdrop-blur-sm border border-yellow-500/20 rounded-2xl p-8">
+              <div className="flex items-start justify-between mb-4 gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
+                    <FolderPlus className="w-6 h-6 text-yellow-400" />
+                    Meus Trabalhos
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    Crie cards para cada produção (filme, campanha, conteúdo) e liste os equipamentos que você precisa.
+                  </p>
+                </div>
+              </div>
+
+              {/* New Project Form */}
+              <form onSubmit={handleCreateProject} className="mb-6 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Nome do trabalho *</label>
+                    <input
+                      type="text"
+                      value={newProjectTitle}
+                      onChange={e => setNewProjectTitle(e.target.value)}
+                      placeholder="Ex: Filme X - Semana 1"
+                      className="w-full bg-white/10 border border-yellow-500/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">Descrição / Cliente</label>
+                    <input
+                      type="text"
+                      value={newProjectDescription}
+                      onChange={e => setNewProjectDescription(e.target.value)}
+                      placeholder="Produtora / marca / contexto"
+                      className="w-full bg-white/10 border border-yellow-500/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3 border-t border-white/10 pt-3 space-y-2">
+                  <p className="text-xs text-gray-300 font-medium">Equipamentos necessários (opcional)</p>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <select
+                      value={selectedEquipmentId}
+                      onChange={e => setSelectedEquipmentId(e.target.value)}
+                      className="flex-1 bg-black/40 border border-white/20 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-yellow-500"
+                    >
+                      <option value="">Selecionar equipamento do catálogo</option>
+                      {availableEquipment.map(eq => (
+                        <option key={eq.id} value={eq.id}>
+                          {eq.modelo} — R$ {eq.valor_diaria}/dia
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      value={selectedEquipmentQty}
+                      onChange={e => setSelectedEquipmentQty(parseInt(e.target.value, 10) || 1)}
+                      className="w-24 bg-black/40 border border-white/20 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-yellow-500"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddDraftItem}
+                      disabled={!selectedEquipmentId}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-black text-xs font-semibold px-3"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Adicionar
+                    </Button>
+                  </div>
+                  {draftItems.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {draftItems.map((item, index) => (
+                        <span
+                          key={`${item.equipamento_id}-${index}`}
+                          className="px-2 py-1 rounded-full bg-black/40 border border-yellow-500/40 text-[11px] text-yellow-100"
+                        >
+                          {item.modelo} × {item.quantidade}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    disabled={creatingProject || !newProjectTitle.trim()}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-black text-sm font-semibold px-4"
+                  >
+                    {creatingProject ? 'Criando...' : 'Criar Trabalho'}
+                  </Button>
+                </div>
+              </form>
+
+              {/* Existing projects */}
+              {loadingProjects ? (
+                <div className="text-center py-8 text-gray-400 text-sm">Carregando trabalhos...</div>
+              ) : projects.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  Você ainda não criou nenhum trabalho. Comece criando um acima.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {projects.map((project) => (
+                    <div
+                      key={project.id}
+                      className="bg-black/40 border border-yellow-500/20 rounded-xl p-4 flex flex-col justify-between"
+                    >
+                      <div>
+                        <h3 className="text-lg font-bold text-white mb-1">{project.titulo}</h3>
+                        {project.descricao && (
+                          <p className="text-xs text-gray-300 mb-2">{project.descricao}</p>
+                        )}
+                        <p className="text-[11px] text-gray-500 mb-3">
+                          Criado em{' '}
+                          {project.created_at
+                            ? new Date(project.created_at).toLocaleDateString('pt-BR')
+                            : '—'}
+                        </p>
+                        {Array.isArray(project.equipamentos) && project.equipamentos.length > 0 ? (
+                          <div className="space-y-1 text-xs">
+                            <p className="text-gray-300 font-medium mb-1">Equipamentos planejados:</p>
+                            {project.equipamentos.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-gray-200">
+                                <span>{item.modelo || 'Equipamento'}</span>
+                                <span className="text-yellow-400 font-semibold">
+                                  × {item.quantidade || 1}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-gray-500">
+                            Nenhum equipamento listado ainda. Use o formulário acima para adicionar quando criar
+                            novos trabalhos.
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

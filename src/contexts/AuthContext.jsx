@@ -99,6 +99,31 @@ export const AuthProvider = ({ children }) => {
     return { user: quickUser };
   };
 
+  const signup = async (email, password, options = {}) => {
+    const role = options?.role || 'cliente';
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { tipo_usuario: role }
+      }
+    });
+    if (error) return { error: error.message };
+    if (!data.user) return { error: 'Erro ao criar conta.' };
+
+    await supabase.from('usuarios').upsert({
+      id: data.user.id,
+      email: data.user.email,
+      nome: options?.nome || data.user.email?.split('@')[0] || 'Usuário',
+      tipo_usuario: role
+    });
+    const quickUser = normalizeUser(data.user, { tipo_usuario: role, nome: options?.nome });
+    setUser(quickUser);
+    setLoading(false);
+    syncProfile(data.user);
+    return { user: quickUser };
+  };
+
   const updateProfile = async (updates) => {
     try {
       if (!user?.id) throw new Error("Usuário não identificado");
@@ -138,7 +163,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{
-      user, currentUser: user, loading, login, logout, updateProfile,
+      user, currentUser: user, loading, login, logout, signup, updateProfile,
       isAuthenticated: !!user,
       isAdmin: user?.role === 'super_admin' || user?.tipo_usuario === 'super_admin',
       isLocadora: user?.role === 'locadora' || user?.tipo_usuario === 'locadora'

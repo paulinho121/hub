@@ -5,17 +5,20 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, Building, CreditCard, MessageCircle, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { reservationService } from '@/services/reservationService';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [reservationData, setReservationData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    whatsapp: '', // Added WhatsApp field
+    whatsapp: '',
     company: '',
     paymentMethod: 'pix',
     deliveryMethod: 'hub_pickup',
@@ -25,34 +28,31 @@ const ReservationPage = () => {
   useEffect(() => {
     const pending = localStorage.getItem('pendingReservation');
     if (!pending) {
-      navigate('/catalog');
+      navigate('/catalogo');
       return;
     }
     const data = JSON.parse(pending);
     setReservationData(data);
 
-    // Pre-fill user data if available from session
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    if (currentUser) {
+    if (user) {
       setFormData(prev => ({
         ...prev,
-        name: currentUser.name || '',
-        email: currentUser.email || '',
-        phone: currentUser.phone || '',
-        whatsapp: currentUser.whatsapp || '',
-        company: currentUser.company || ''
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        whatsapp: user.whatsapp || prev.whatsapp,
+        company: user.company || prev.company
       }));
     }
-  }, [navigate]);
+  }, [navigate, user]);
 
   const calculateTotalPrice = () => {
     if (!reservationData) return 0;
-
     const start = new Date(reservationData.startDate);
     const end = new Date(reservationData.endDate);
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
-    return reservationData.equipment.daily_price * days;
+    const qty = reservationData.quantity || 1;
+    return (reservationData.equipment.daily_price || 0) * days * qty;
   };
 
   const calculateDays = () => {
@@ -91,49 +91,45 @@ const ReservationPage = () => {
     setLoading(true);
 
     try {
-      // Create reservation
-      const reservations = JSON.parse(localStorage.getItem('reservations') || '[]');
-      const newReservation = {
-        id: Date.now().toString(),
-        equipment_id: reservationData.equipment.id,
-        equipment_name: reservationData.equipment.name,
-        start_date: reservationData.startDate,
-        end_date: reservationData.endDate,
-        total_price: calculateTotalPrice(),
-        status: 'pending',
+      const totalPrice = calculateTotalPrice();
+      const payload = {
+        equipamento_id: reservationData.equipment.id,
+        locadora_id: reservationData.equipment.locadora_id,
+        usuario_id: user?.id || null,
+        data_inicio: reservationData.startDate,
+        data_fim: reservationData.endDate,
+        quantidade: reservationData.quantity || 1,
+        valor_total: totalPrice,
+        status: 'pendente_aprovacao',
+        modalidade_entrega: formData.deliveryMethod,
+        endereco_entrega: formData.deliveryMethod === 'delivery' ? formData.deliveryAddress : null,
+        valor_frete: 0,
+        logistica_status: 'pendente',
         customer_name: formData.name,
         customer_email: formData.email,
         customer_phone: formData.phone,
-        customer_whatsapp: formData.whatsapp, // Store WhatsApp
-        customer_company: formData.company,
-        payment_method: formData.paymentMethod,
-        modalidade_entrega: formData.deliveryMethod,
-        endereco_entrega: formData.deliveryAddress,
-        status: 'pendente_aprovacao', // More specific status
-        logistica_status: 'pendente',
-        created_at: new Date().toISOString()
+        customer_whatsapp: formData.whatsapp || null,
+        customer_company: formData.company || null
       };
 
-      reservations.push(newReservation);
-      localStorage.setItem('reservations', JSON.stringify(reservations));
-
-      // Clear pending reservation
+      const created = await reservationService.create(payload);
       localStorage.removeItem('pendingReservation');
 
       toast({
-        title: 'Reserva confirmada!',
-        description: `ID: ${newReservation.id}. Detalhes enviados para ${formData.email}.`
+        title: 'Solicitação enviada!',
+        description: 'A locadora receberá seu pedido e entrará em contato em breve.'
       });
 
-      // Redirect to success page or catalog
-      setTimeout(() => {
-        navigate('/catalog');
-      }, 2000);
-
+      navigate('/reserva/confirmacao', {
+        state: {
+          reservation: { id: created.id, valorTotal: totalPrice },
+          item: { titulo: reservationData.equipment.name }
+        }
+      });
     } catch (error) {
       toast({
         title: 'Erro ao processar reserva',
-        description: 'Ocorreu um erro. Por favor, tente novamente.',
+        description: error?.message || 'Por favor, tente novamente.',
         variant: 'destructive'
       });
     } finally {

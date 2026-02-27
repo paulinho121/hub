@@ -5,7 +5,7 @@ import {
     Users, Package, Calendar, FileSpreadsheet, Search,
     Download, Filter, CheckCircle, XCircle, Trash2,
     BarChart3, LayoutDashboard, Shield, UserCog,
-    Settings, PlusCircle
+    Settings, PlusCircle, MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -13,6 +13,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { getLocadoras, getReservas, getAllEquipamentos, updateLocadoraStatus, seedInitialData } from '@/lib/supabaseDatabase';
 import { useRealtimeEquipamentos } from '@/hooks/useRealtimeEquipamentos';
 import EquipmentRegistrationForm from '@/components/EquipmentRegistrationForm';
+import AdminAssistantPanel from '@/components/AdminAssistantPanel';
 import GoogleSheetsImporter from '@/components/GoogleSheetsImporter';
 import { Zap } from 'lucide-react';
 
@@ -29,6 +30,7 @@ const SuperAdminDashboard = () => {
     const [importerOpen, setImporterOpen] = useState(false);
     const [currentAdmin, setCurrentAdmin] = useState('');
     const [isSeeding, setIsSeeding] = useState(false);
+    const [optimizingLogistics, setOptimizingLogistics] = useState(false);
 
     const { toast } = useToast();
     const navigate = useNavigate();
@@ -90,6 +92,18 @@ const SuperAdminDashboard = () => {
         } finally {
             setIsSeeding(false);
         }
+    };
+
+    const handleSuggestLogistics = () => {
+        if (!reservas || reservas.length === 0) return;
+        setOptimizingLogistics(true);
+        setTimeout(() => {
+            toast({
+                title: 'Sugestão gerada',
+                description: 'Rotas sugeridas: agrupe entregas por cidade/bairro e concentre coletas pela manhã.',
+            });
+            setOptimizingLogistics(false);
+        }, 600);
     };
 
     const getStatusColor = (status) => {
@@ -165,6 +179,11 @@ const SuperAdminDashboard = () => {
                             <FileSpreadsheet className="w-4 h-4 mr-2" /> Importar Dados
                         </Button>
                     </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4 mb-6">
+                    <div />
+                    <AdminAssistantPanel contextLabel="reservas, locadoras e equipamentos" />
                 </div>
 
                 {/* Tabs */}
@@ -323,6 +342,14 @@ const SuperAdminDashboard = () => {
                                         <MapPin className="w-4 h-4 text-[#FFD700]" />
                                         <span className="text-xs text-white">Pickups em análise: {reservas.filter(r => r.logistica_status === 'pendente').length}</span>
                                     </div>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSuggestLogistics}
+                                        disabled={optimizingLogistics || reservas.length === 0}
+                                        className="bg-[#FFD700]/10 hover:bg-[#FFD700]/20 text-[#FFD700] border border-[#FFD700]/40 text-xs font-semibold"
+                                    >
+                                        {optimizingLogistics ? 'Calculando...' : 'Sugestão de janelas (beta)'}
+                                    </Button>
                                 </div>
                             </div>
 

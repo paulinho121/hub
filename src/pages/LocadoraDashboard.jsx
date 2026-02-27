@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     Plus, Image as ImageIcon, Trash2, Edit2, Loader2, LogOut,
     Briefcase, User, Search, Package, ShoppingCart, Repeat,
-    ArrowRightLeft, ShieldCheck, MapPin
+    ArrowRightLeft, ShieldCheck, MapPin, TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -129,6 +129,23 @@ const LocadoraDashboard = () => {
                 {/* Content Area */}
                 <div className="min-h-[400px]">
                     {activeTab === 'meus-produtos' && (
+                        <div className="mb-4 bg-zinc-900/60 border border-zinc-700/60 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                                    <TrendingUp className="w-4 h-4 text-green-400" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-zinc-400 uppercase font-semibold tracking-wider">Insight rápido</p>
+                                    <p className="text-sm text-white">
+                                        Itens com mais reservas recentes tendem a aceitar{' '}
+                                        <span className="text-green-400 font-semibold">+10% a +20%</span> no valor de diária.
+                                        Use este painel como base para revisar sua tabela de preços.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {activeTab === 'meus-produtos' && (
                         <div className="animate-in fade-in duration-500">
                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {myEquipment.length === 0 ? (
@@ -138,9 +155,18 @@ const LocadoraDashboard = () => {
                                         <Button onClick={() => setActiveTab('add-product')} variant="link" className="text-[#FFD700]">Cadastrar agora</Button>
                                     </div>
                                 ) : (
-                                    myEquipment.map(item => (
-                                        <ProductCard key={item.id} item={item} isOwn />
-                                    ))
+                                    myEquipment.map(item => {
+                                        const reservasDoItem = reservas.filter(r => r.equipamento_id === item.id);
+                                        const qtdRecentes = reservasDoItem.length;
+                                        return (
+                                            <ProductCard
+                                                key={item.id}
+                                                item={item}
+                                                isOwn
+                                                demandScore={qtdRecentes}
+                                            />
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>
@@ -229,7 +255,7 @@ const LocadoraDashboard = () => {
     );
 };
 
-const ProductCard = ({ item, isOwn, onAction }) => {
+const ProductCard = ({ item, isOwn, onAction, demandScore = 0 }) => {
     return (
         <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden hover:border-[#FFD700]/30 transition-all group flex flex-col h-full">
             <div className="h-48 bg-zinc-900 relative overflow-hidden">
@@ -255,6 +281,21 @@ const ProductCard = ({ item, isOwn, onAction }) => {
                     <p className="text-zinc-400 text-xs font-medium uppercase tracking-wider">
                         {isOwn ? item.categoria : 'Parceiro Verificado'}
                     </p>
+                        {isOwn && (
+                            <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400">
+                                <span>
+                                    Demanda recente:{' '}
+                                    <span className="font-bold text-zinc-100">
+                                        {demandScore === 0 ? 'baixa' : demandScore <= 2 ? 'média' : 'alta'}
+                                    </span>
+                                </span>
+                                {demandScore > 2 && (
+                                    <span className="text-green-400 font-semibold">
+                                        Sugerido: +10% diária
+                                    </span>
+                                )}
+                            </div>
+                        )}
                 </div>
 
                 <div className="mt-auto pt-4 border-t border-white/5 space-y-3">

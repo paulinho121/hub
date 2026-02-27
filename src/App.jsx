@@ -24,6 +24,8 @@ import SuperAdminSetupPage from '@/pages/SuperAdminSetupPage';
 import LocadoraDashboard from '@/pages/LocadoraDashboard';
 import LocadoraProfilePage from '@/pages/LocadoraProfilePage';
 import AdminBootstrapPage from '@/pages/AdminBootstrapPage';
+import ReservationPage from '@/pages/ReservationPage';
+import ReservaConfirmationPage from '@/pages/ReservaConfirmationPage';
 
 // Inner App component to handle loading state
 const InnerApp = () => {
@@ -49,6 +51,8 @@ const InnerApp = () => {
           <Route path="/equipamento/:id" element={<EquipamentoDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/reserva" element={<ReservationPage />} />
+          <Route path="/reserva/confirmacao" element={<ReservaConfirmationPage />} />
           
           {/* Utility Routes (Remove in production) */}
           <Route path="/admin-bootstrap" element={<AdminBootstrapPage />} />

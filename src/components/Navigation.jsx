@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Menu, X, LayoutDashboard, LogOut, LogIn, ShieldAlert
+  Menu, X, LayoutDashboard, LogOut, LogIn, ShieldAlert,
+  Aperture, Grid, MapPin
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
